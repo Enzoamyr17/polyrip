@@ -1,0 +1,196 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String     @id @default(uuid())
+  name         String
+  passwordHash String
+  status       UserStatus @default(ACTIVE)
+  players      Player[]
+  createdAt    DateTime   @default(now())
+}
+
+enum UserStatus {
+  ACTIVE
+  BANNED
+  SUSPENDED
+}
+
+// ─── Game ─────────────────────────────────────────────────────────────────────
+
+model Game {
+  id                String      @id @default(uuid())
+  code              String      @unique
+  status            GameStatus  @default(LOBBY)
+  phase             GamePhase   @default(WAITING_FOR_ROLL)
+  currentPlayerId   String?
+  currentPlayer     Player?     @relation("CurrentPlayer", fields: [currentPlayerId], references: [id])
+  turnNumber        Int         @default(0)
+  turnStartedAt     DateTime?
+  afkTimeoutSeconds Int         @default(60)
+  maxPlayers        Int         @default(6)
+  doublesStreak     Int         @default(0)
+  players           Player[]
+  properties        Property[]
+  cardDecks         CardDeck[]
+  events            GameEvent[]
+  auctions          Auction[]
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+}
+
+enum GameStatus {
+  LOBBY
+  IN_PROGRESS
+  ENDED
+  ABANDONED
+}
+
+enum GamePhase {
+  WAITING_FOR_ROLL
+  AWAITING_ACTION
+  AUCTION
+  ENDED
+}
+
+// ─── Players ──────────────────────────────────────────────────────────────────
+
+model Player {
+  id            String       @id @default(uuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id])
+  gameId        String
+  game          Game         @relation(fields: [gameId], references: [id])
+  position      Int          @default(0)
+  cash          Int          @default(1500)
+  turnOrder     Int
+  isInJail      Boolean      @default(false)
+  jailTurns     Int          @default(0)
+  isBankrupt    Boolean      @default(false)
+  jailFreeCards Int          @default(0)
+  properties    Property[]
+  events        GameEvent[]
+  bids          AuctionBid[]
+  currentOf     Game[]       @relation("CurrentPlayer")
+  createdAt     DateTime     @default(now())
+
+  @@unique([userId, gameId])
+}
+
+// ─── Properties ───────────────────────────────────────────────────────────────
+
+model Property {
+  id          String   @id @default(uuid())
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id])
+  tileIndex   Int
+  ownerId     String?
+  owner       Player?  @relation(fields: [ownerId], references: [id])
+  houses      Int      @default(0)
+  hasHotel    Boolean  @default(false)
+  isMortgaged Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([gameId, tileIndex])
+}
+
+// ─── Card Decks ───────────────────────────────────────────────────────────────
+
+model CardDeck {
+  id          String   @id @default(uuid())
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id])
+  deckType    DeckType
+  cardOrder   Int[]
+  drawPointer Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([gameId, deckType])
+}
+
+enum DeckType {
+  CHANCE
+  COMMUNITY_CHEST
+}
+
+// ─── Game Events (append-only audit log) ─────────────────────────────────────
+
+model GameEvent {
+  id             String    @id @default(uuid())
+  gameId         String
+  game           Game      @relation(fields: [gameId], references: [id])
+  playerId       String?
+  player         Player?   @relation(fields: [playerId], references: [id])
+  sequenceNumber Int
+  eventType      EventType
+  payload        Json
+  createdAt      DateTime  @default(now())
+
+  @@unique([gameId, sequenceNumber])
+  @@index([gameId, sequenceNumber])
+}
+
+enum EventType {
+  GAME_STARTED
+  DICE_ROLLED
+  PLAYER_MOVED
+  PASSED_GO
+  PROPERTY_BOUGHT
+  PROPERTY_DECLINED
+  RENT_PAID
+  TAX_PAID
+  CARD_DRAWN
+  CARD_EFFECT_APPLIED
+  WENT_TO_JAIL
+  JAIL_FINE_PAID
+  JAIL_FREE_CARD_USED
+  HOUSE_BUILT
+  HOTEL_BUILT
+  AUCTION_STARTED
+  AUCTION_BID_PLACED
+  AUCTION_WON
+  AUCTION_CANCELLED
+  PLAYER_BANKRUPT
+  GAME_ENDED
+  TURN_SKIPPED_AFK
+}
+
+// ─── Auctions ─────────────────────────────────────────────────────────────────
+
+model Auction {
+  id                String        @id @default(uuid())
+  gameId            String
+  game              Game          @relation(fields: [gameId], references: [id])
+  propertyTileIndex Int
+  status            AuctionStatus @default(ACTIVE)
+  highestBid        Int           @default(0)
+  highestBidderId   String?
+  bids              AuctionBid[]
+  startedAt         DateTime      @default(now())
+  endsAt            DateTime
+}
+
+enum AuctionStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model AuctionBid {
+  id        String   @id @default(uuid())
+  auctionId String
+  auction   Auction  @relation(fields: [auctionId], references: [id])
+  playerId  String
+  player    Player   @relation(fields: [playerId], references: [id])
+  amount    Int
+  createdAt DateTime @default(now())
+}
