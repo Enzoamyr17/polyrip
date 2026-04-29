@@ -93,6 +93,13 @@ export interface AuctionSnapshot {
   endsAt: string
 }
 
+export interface DiceRollSnapshot {
+  die1: number
+  die2: number
+  total: number
+  isDoubles: boolean
+}
+
 export interface GameSnapshot {
   gameId: string
   code: string
@@ -106,6 +113,7 @@ export interface GameSnapshot {
   players: PlayerSnapshot[]
   properties: PropertySnapshot[]
   activeAuction: AuctionSnapshot | null
+  lastRoll: DiceRollSnapshot | null
 }
 
 // ─── Engine action results ────────────────────────────────────────────────────
@@ -151,8 +159,7 @@ export interface ClientJailCardPayload {
 }
 
 export interface ClientJoinPayload {
-  gameId: string
-  token: string
+  code: string
 }
 
 export interface ClientStartPayload {

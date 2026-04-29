@@ -75,7 +75,8 @@ export async function startGame(gameId: string, hostUserId: string): Promise<voi
 
   if (game.status !== 'LOBBY') throw new Error('Game already started')
   if (game.players.length < 2) throw new Error('Need at least 2 players')
-  if (game.players[0].userId !== hostUserId) throw new Error('Only the host can start the game')
+  const host = game.players.find((p) => p.turnOrder === 1)
+  if (!host || host.userId !== hostUserId) throw new Error('Only the host can start the game')
 
   // Randomize turn order
   const shuffledPlayers = shuffleArray(game.players)

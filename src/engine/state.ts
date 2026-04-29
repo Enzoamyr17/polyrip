@@ -10,16 +10,26 @@ type FullGame = Game & {
 }
 
 export async function buildGameSnapshot(gameId: string): Promise<GameSnapshot> {
-  const game = await prisma.game.findUniqueOrThrow({
-    where: { id: gameId },
-    include: {
-      players: { include: { user: { select: { name: true } } } },
-      properties: true,
-      auctions: { where: { status: 'ACTIVE' } },
-    },
-  })
+  const [game, lastRollEvent] = await Promise.all([
+    prisma.game.findUniqueOrThrow({
+      where: { id: gameId },
+      include: {
+        players: { include: { user: { select: { name: true } } } },
+        properties: true,
+        auctions: { where: { status: 'ACTIVE' } },
+      },
+    }),
+    prisma.gameEvent.findFirst({
+      where: { gameId, eventType: 'DICE_ROLLED' },
+      orderBy: { sequenceNumber: 'desc' },
+      select: { payload: true },
+    }),
+  ])
 
   const activeAuction = game.auctions[0] ?? null
+  const lastRoll = lastRollEvent
+    ? (lastRollEvent.payload as { die1: number; die2: number; total: number; isDoubles: boolean })
+    : null
 
   return {
     gameId: game.id,
@@ -62,5 +72,6 @@ export async function buildGameSnapshot(gameId: string): Promise<GameSnapshot> {
           endsAt: activeAuction.endsAt.toISOString(),
         }
       : null,
+    lastRoll,
   }
 }

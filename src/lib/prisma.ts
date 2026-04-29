@@ -1,4 +1,4 @@
-import { PrismaClient } from '../../app/generated/prisma/client'
+import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 
 export { PrismaClient }
@@ -12,7 +12,7 @@ export type {
   Auction,
   AuctionBid,
   Prisma,
-} from '../../app/generated/prisma/client'
+} from '@prisma/client'
 
 declare global {
   // eslint-disable-next-line no-var
